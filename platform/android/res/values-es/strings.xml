@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+
+	<string name="goBack">Regresar</string>
+	<string name="zoomOut">Reducir</string>
+	<string name="zoomIn">Aumentar</string>
+	<string name="previous">Anterior</string>
+	<string name="next">Siguiente</string>
+	<string name="pageNumber">Página:\n%1$d de %2$d</string>
+	
+	<string name="progressLoadingText">Cargando el documento. Por favor espere.</string>
+	
+	
+</resources>
