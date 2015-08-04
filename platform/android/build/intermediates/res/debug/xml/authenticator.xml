@@ -1,0 +1,5 @@
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+                       android:accountType="com.on4today"
+                       android:icon="@drawable/ic_on4today"
+                       android:smallIcon="@drawable/ic_on4today"
+                       android:label="@string/name"/><!-- From: file:/usr/local/var/www/android-authentication/res/xml/authenticator.xml --><!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/xml/authenticator.xml -->

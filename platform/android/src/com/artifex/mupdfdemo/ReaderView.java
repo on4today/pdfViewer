@@ -1,13 +1,11 @@
 package com.artifex.mupdfdemo;
 
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -16,6 +14,9 @@ import android.view.View;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.Scroller;
+
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
 
 public class ReaderView
 		extends AdapterView<Adapter>
@@ -59,9 +60,8 @@ public class ReaderView
 	private final Stepper     mStepper;
 	private int               mScrollerLastX;
 	private int               mScrollerLastY;
+    private static final String TAG = "ReaderView";
 	
-	private float			  mZoomToWidthScale;
-
 	static abstract class ViewMapper {
 		abstract void applyToView(View view);
 	}
@@ -504,12 +504,6 @@ public class ReaderView
 		// only confuse the user
 		mXScroll = mYScroll = 0;
 		
-		if (mZoomToWidthScale == 0){
-			View v = mChildViews.get(mCurrent);
-			int pageWidth = v.getMeasuredWidth();
-			int viewWidth = getWidth();
-		    mZoomToWidthScale = (float) viewWidth / (float) pageWidth;
-		}
 		return true;
 	}
 
@@ -894,40 +888,51 @@ public class ReaderView
 		default: throw new NoSuchElementException();
 		}
 	}
-	
-	
-	public void zoomToLevel(int level){ 
-		View v = mChildViews.get(mCurrent);
-		float previousScale = mScale;
 
+    /**
+     * Sets the zoom level in four steps
+     * @param level must be 1, 2, 3, or 4
+     */
+	public void zoomToLevel(int level){
+        if (level < 1 || level > 4){
+            Log.e(TAG, "Illegal zoom level: " + level);
+            return;
+        }
+
+		View view = mChildViews.get(mCurrent);
+		if (view == null)
+		    return;
+		
+		float previousScale = mScale;
+		
+		// See what size the view wants to be
+        view.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+
+        // Work out a scale that will fit it to this view
 		switch (level){
-		case 1:
-		    mScale = 1.0f;
-			break;	
-		case 2:
-			if (mZoomToWidthScale == 0){
-				int pageWidth = v.getMeasuredWidth();
-				int viewWidth = getWidth();
-			    mScale = (float) viewWidth / (float) pageWidth;
-			    mZoomToWidthScale = mScale;
-			} else {
-				mScale = mZoomToWidthScale;
-			}
-		    break;
-		case 3:
-		    mScale = 2.0f;
-			break;	
-		case 4:
-		    mScale = 3.0f;
-		    break;
+    		case 1:
+    		    mScale = 1.0f;
+    			break;	
+    		case 2:
+    		    int pageWidth = view.getMeasuredWidth();
+    			int viewWidth = getWidth();
+    			mScale = (float) viewWidth / (float) pageWidth;    
+    		    break;
+    		case 3:
+    		    mScale = 3.0f;
+    			break;	
+    		case 4:
+    		    mScale = 4.0f;
+    		    break;
 		}
 
 	    float factor = mScale/previousScale;
 	    
-	    if (v != null) {
+	    // move the page so that it is still centered
+	    if (view != null) {
 	        // Work out the focus point relative to the view top left
-	        int viewFocusX = - (v.getLeft() + mXScroll);
-	        int viewFocusY = - (v.getTop() + mYScroll);
+	        int viewFocusX = - (view.getLeft() + mXScroll);
+	        int viewFocusY = - (view.getTop() + mYScroll);
 	        // Scroll to maintain the focus point
 	        mXScroll += viewFocusX - viewFocusX * factor;
 	        mYScroll += viewFocusY - viewFocusY * factor;

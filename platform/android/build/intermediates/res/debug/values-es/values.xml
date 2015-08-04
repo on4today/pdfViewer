@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values-es/strings.xml -->
+    <eat-comment/>
+    <string name="goBack">Regresar</string>
+    <string name="next">Siguiente</string>
+    <string name="pageNumber">Página:\n%1$d de %2$d</string>
+    <string name="previous">Anterior</string>
+    <string name="progressLoadingText">Cargando el documento. Por favor espere.</string>
+    <string name="zoomIn">Aumentar</string>
+    <string name="zoomOut">Reducir</string>
+</resources>

@@ -17,7 +17,6 @@ public class MuPDFPageAdapter extends BaseAdapter {
 
 	public MuPDFPageAdapter(Context c, MuPDFCore core) {
 		mContext = c;
-//		mFilePickerSupport = filePickerSupport;
 		mCore = core;
 	}
 

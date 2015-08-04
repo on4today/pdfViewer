@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <color name="black">#000000</color>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/colors.xml -->
+    <eat-comment/>
+    <color name="busy_indicator">#C0202020</color>
+    <color name="button_normal">#00000000</color>
+    <color name="button_pressed">#FF2572AC</color>
+    <color name="canvas">#404040</color>
+    <color name="page_indicator">#C0202020</color>
+    <color name="seek_progress">#FFFFFF</color>
+    <color name="seek_thumb">#2572AC</color>
+    <color name="text_border_focused">#000000</color>
+    <color name="text_border_normal">#000000</color>
+    <color name="text_border_pressed">#2572AC</color>
+    <color name="text_normal">#FFFFFF</color>
+    <color name="text_pressed">#FFFFFF</color>
+    <color name="toolbar">#C0000000</color>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="accept">Accept</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="account_type">com.on4today</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="cancel">Cancel</string>
+    <string name="cannot_open_buffer">Cannot open buffer</string>
+    <string name="cannot_open_document">Cannot open document</string>
+    <string name="cannot_open_document_Reason">Cannot open document: %1$s</string>
+    <string name="cannot_open_file_Path">Cannot open file: %1$s</string>
+    <string name="choose_value">Choose value</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+    <string name="copy">Copy</string>
+    <string name="copy_text">copy text</string>
+    <string name="copy_text_to_the_clipboard">Copy text to the clipboard</string>
+    <string name="delete">Delete</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="document_has_changes_save_them_">Document has changes. Save them?</string>
+    <string name="draw_annotation">Draw annotation</string>
+    <string name="edit_annotations">Edit annotations</string>
+    <string name="enter_password">Enter password</string>
+    <string name="entering_reflow_mode">Entering reflow mode</string>
+    <string name="fill_out_text_field">Fill out text field</string>
+    <string name="format_currently_not_supported">Format currently not supported</string>
+    <string name="goBack">Go back</string>
+    <string name="highlight">Highlight</string>
+    <string name="ink">Ink</string>
+    <string name="leaving_reflow_mode">Leaving reflow mode</string>
+    <string name="more">More</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="name">On4Today</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="next">Next</string>
+    <string name="no">No</string>
+    <string name="no_further_occurrences_found">No further occurrences found</string>
+    <string name="no_media_hint">Sharing the storage media with a PC can make it inaccessible</string>
+    <string name="no_media_warning">Storage media not present</string>
+    <string name="no_text_selected">No text selected</string>
+    <string name="not_supported">Not supported</string>
+    <string name="nothing_to_save">Nothing to save</string>
+    <string name="okay">Okay</string>
+    <string name="outline_title">Table of Contents</string>
+    <string name="pageNumber">Page\n%1$d of %2$d</string>
+    <string name="parent_directory">[Up one level]</string>
+    <string name="picker_title_App_Ver_Dir">%1$s %2$s: %3$s</string>
+    <string name="previous">Previous</string>
+    <string name="print">Print</string>
+    <string name="print_failed">Print failed</string>
+    <string name="progressLoadingText">Loading the document. Please wait.</string>
+    <string name="save">Save</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="save_server">Save</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="search">Search</string>
+    <string name="search_backwards">Search backwards</string>
+    <string name="search_document">Search document</string>
+    <string name="search_forwards">Search forwards</string>
+    <string name="searching_">Searching…</string>
+    <string name="select">Select</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="select_server">Select server</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="select_text">Select text</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="server1">https://app.on4today.com</string>
+    <string name="server2">https://app-staging.on4.today</string>
+    <string name="server3">https://dev.on4.today</string>
+    <string name="server4">https://dev-staging.on4.today</string>
+    <string name="server5">https://dev-auto.on4.today</string>
+    <string name="server6">https://test.on4.today</string>
+    <string name="server7">https://psvl.on4.today</string>
+    <string name="server8">https://demo.on4.today</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="strike_out">Strike-out</string>
+    <string name="text_not_found">Text not found</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <string name="title_select_server_activity">Select server</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/values/strings.xml -->
+    <eat-comment/>
+    <string name="toggle_links">Highlight and enable links</string>
+    <string name="toggle_reflow_mode">Toggle reflow mode</string>
+    <string name="underline">Underline</string>
+    <string name="yes">Yes</string>
+    <string name="zoomIn">Zoom in</string>
+    <string name="zoomOut">Zoom out</string>
+    <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/build/intermediates/exploded-aar/content-shell/authentication/unspecified/res/values/values.xml -->
+    <eat-comment/>
+    <style name="simpleFullScreen" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar.Fullscreen">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowBackground">@color/black</item>
+    	<item name="android:colorBackground">@color/black</item>
+    </style>
+</resources>

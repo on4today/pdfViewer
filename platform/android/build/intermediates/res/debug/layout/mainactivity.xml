@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/background_blank" >
+
+    <ImageButton
+        android:id="@+id/exitAppButton"
+        android:layout_width="135dp"
+        android:layout_height="100dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="20dp"
+        android:background="@null"
+        android:contentDescription="@string/goBack"
+        android:paddingLeft="23dp"
+        android:paddingRight="20dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/go_back" />
+
+    <TextView
+        android:id="@+id/exitAppText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/exitAppButton"
+        android:background="@null"
+        android:gravity="center"
+        android:text="@string/goBack"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:onClick="onClick"                
+        android:clickable="true" />
+
+    <ImageButton
+        android:id="@+id/zoomOutButton"
+        android:layout_width="135dp"
+        android:layout_height="100dp"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/exitAppText"
+        android:background="@null"
+        android:contentDescription="@string/zoomOut"
+        android:paddingTop="40dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/zoom_out_disabled" />
+
+    <TextView
+        android:id="@+id/zoomOutText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/zoomOutButton"
+        android:background="@null"
+        android:gravity="center"
+        android:text="@string/zoomOut"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:onClick="onClick"                
+        android:clickable="true" />
+
+    <ImageButton
+        android:id="@+id/zoomInButton"
+        android:layout_width="135dp"
+        android:layout_height="100dp"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/zoomOutText"
+        android:background="@null"
+        android:contentDescription="@string/zoomIn"
+        android:paddingTop="40dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/zoom_in" />
+
+    <TextView
+        android:id="@+id/zoomInText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/zoomInButton"
+        android:background="@null"
+        android:gravity="center"
+        android:text="@string/zoomIn"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:onClick="onClick"                
+        android:clickable="true" />
+
+    <ImageButton
+        android:id="@+id/goUpButton"
+        android:layout_width="135dp"
+        android:layout_height="100dp"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/zoomInText"
+        android:background="@null"
+        android:contentDescription="@string/previous"
+        android:paddingTop="40dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/previous_page_disabled" />
+
+    <TextView
+        android:id="@+id/goUpText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/goUpButton"
+        android:background="@null"
+        android:gravity="center"
+        android:text="@string/previous"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:onClick="onClick"                
+        android:clickable="true" />
+
+    <ImageButton
+        android:id="@+id/goDownButton"
+        android:layout_width="135dp"
+        android:layout_height="100dp"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/goUpText"
+        android:background="@null"
+        android:contentDescription="@string/next"
+        android:paddingTop="40dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/next_page" />
+
+    <TextView
+        android:id="@+id/goDownText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/goDownButton"
+        android:background="@null"
+        android:gravity="center"
+        android:text="@string/next"
+        android:textColor="@android:color/white"
+        android:textSize="24sp"
+        android:onClick="onClick"                
+        android:clickable="true" />
+
+    <TextView
+        android:id="@+id/pageNumberText"
+        android:layout_width="135dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_below="@id/goDownText"
+        android:background="@null"
+        android:gravity="center"
+        android:paddingTop="30dp"
+        android:textColor="@android:color/white"
+        android:textSize="24sp" />
+
+    
+    
+    <RelativeLayout
+        android:id="@+id/progressLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentTop="true"
+        android:layout_toLeftOf="@id/exitAppButton" >
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="500dp"
+            android:layout_height="40dp"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:progressDrawable="@drawable/progressbar" />
+
+        <TextView
+            android:id="@+id/progressLoadingText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@id/progressBar"
+            android:background="@null"
+            android:layout_centerHorizontal="true"
+            android:textColor="@android:color/black"
+            android:textSize="36sp"
+            android:text="@string/progressLoadingText" />
+        
+        <TextView
+            android:id="@+id/progressPercentText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/progressBar"
+            android:background="@null"
+            android:layout_centerHorizontal="true"
+            android:textColor="@android:color/black"
+            android:textSize="36sp"/>
+    </RelativeLayout>
+
+</RelativeLayout><!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/layout/mainactivity.xml -->
