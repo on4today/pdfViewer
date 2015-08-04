@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-
-	<string name="app_name">on4today PDF Viewer</string>
-	<string name="version">1.0</string>
-	
+<resources>	
 	<string name="goBack">Go back</string>
 	<string name="zoomOut">Zoom out</string>
 	<string name="zoomIn">Zoom in</string>

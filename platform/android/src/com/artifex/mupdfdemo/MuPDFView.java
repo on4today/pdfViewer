@@ -17,7 +17,6 @@ public interface MuPDFView {
 	public boolean markupSelection(Annotation.Type type);
 	public void deleteSelectedAnnotation();
 	public void setSearchBoxes(RectF searchBoxes[]);
-//	public void setLinkHighlighting(boolean f);
 	public void deselectAnnotation();
 	public void startDraw(float x, float y);
 	public void continueDraw(float x, float y);

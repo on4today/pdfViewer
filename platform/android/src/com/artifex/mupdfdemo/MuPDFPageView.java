@@ -114,8 +114,7 @@ public class MuPDFPageView extends PageView implements MuPDFView {
 		mCore = core;
 		mTextEntryBuilder = new AlertDialog.Builder(c);
 		mTextEntryBuilder.setTitle(getContext().getString(R.string.fill_out_text_field));
-//		LayoutInflater inflater = (LayoutInflater)c.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-//		mEditText = (EditText)inflater.inflate(R.layout.textentry, null);
+
 		mTextEntryBuilder.setView(mEditText);
 		mTextEntryBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {

@@ -1,20 +1,26 @@
 package com.artifex.mupdfdemo;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.MessageDigest;
 import java.util.Locale;
 import java.util.concurrent.Executor;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
@@ -26,692 +32,725 @@ import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import com.on4today.authentication.util.Logging;
+
 class ThreadPerTaskExecutor implements Executor {
-	public void execute(Runnable r) {
-		new Thread(r).start();
-	}
+    public void execute(Runnable r) {
+        new Thread(r).start();
+    }
 }
 
-public class MuPDFActivity extends Activity 
-{
-	/* The core rendering instance */
-	enum AcceptMode {Highlight, Underline, StrikeOut, Ink, CopyText};
+public class MuPDFActivity extends Activity {
+    /* The core rendering instance */
+    enum AcceptMode {Highlight, Underline, StrikeOut, Ink, CopyText};
+
+    private MuPDFCore mCore;
+    private MuPDFReaderView mDocView;
+    private AlertDialog.Builder mAlertBuilder;
+    private boolean mAlertsActive= false;
+    private AsyncTask<Void,Void,MuPDFAlert> mAlertTask;
+    private AlertDialog mAlertDialog;
+    private int mZoomLevel = 1;
+    private String mPdfMD5 = "";
+
+    private ImageView mExitAppButton;
+    private ImageView mZoomInButton;
+    private ImageView mZoomOutButton;
+    private ImageView mGoUpButton;
+    private ImageView mGoDownButton;
+
+    private TextView mExitAppText;
+    private TextView mZoomInText;
+    private TextView mZoomOutText;
+    private TextView mGoUpText;
+    private TextView mGoDownText;
+    private TextView mPageNumberTextView;
+
+    private ProgressBar mProgressBar;
+    private TextView mProgressPercentText;
+    private static final Logging sLogging = new Logging(MuPDFActivity.class);
+
+    // Used to disable navigation, zooming buttons
+    private boolean mFileLoaded = false;
+    private boolean mStop = false;
+    private FileReceiver mFileReceiver = null;
 
 
-	private MuPDFCore    core;
-//	private String       mFileName;
-	private MuPDFReaderView mDocView;
-	private AlertDialog.Builder mAlertBuilder;
-	private boolean mAlertsActive= false;
-	private AsyncTask<Void,Void,MuPDFAlert> mAlertTask;
-	private AlertDialog mAlertDialog;
-	private static final String TAG = "pdf";
-	private int mZoomLevel = 1;
+    public void createAlertWaiter() {
+        mAlertsActive = true;
+        // All mupdf library calls are performed on asynchronous tasks to avoid stalling
+        // the UI. Some calls can lead to javascript-invoked requests to display an
+        // alert dialog and collect a reply from the user. The task has to be blocked
+        // until the user's reply is received. This method creates an asynchronous task,
+        // the purpose of which is to wait of these requests and produce the dialog
+        // in response, while leaving the core blocked. When the dialog receives the
+        // user's response, it is sent to the core via replyToAlert, unblocking it.
+        // Another alert-waiting task is then created to pick up the next alert.
+        if (mAlertTask != null) {
+            mAlertTask.cancel(true);
+            mAlertTask = null;
+        }
+        if (mAlertDialog != null) {
+            mAlertDialog.cancel();
+            mAlertDialog = null;
+        }
+        mAlertTask = new AsyncTask<Void,Void,MuPDFAlert>() {
 
-	public void createAlertWaiter() {
-		mAlertsActive = true;
-		// All mupdf library calls are performed on asynchronous tasks to avoid stalling
-		// the UI. Some calls can lead to javascript-invoked requests to display an
-		// alert dialog and collect a reply from the user. The task has to be blocked
-		// until the user's reply is received. This method creates an asynchronous task,
-		// the purpose of which is to wait of these requests and produce the dialog
-		// in response, while leaving the core blocked. When the dialog receives the
-		// user's response, it is sent to the core via replyToAlert, unblocking it.
-		// Another alert-waiting task is then created to pick up the next alert.
-		if (mAlertTask != null) {
-			mAlertTask.cancel(true);
-			mAlertTask = null;
-		}
-		if (mAlertDialog != null) {
-			mAlertDialog.cancel();
-			mAlertDialog = null;
-		}
-		mAlertTask = new AsyncTask<Void,Void,MuPDFAlert>() {
+            @Override
+            protected MuPDFAlert doInBackground(Void... arg0) {
+                if (!mAlertsActive)
+                    return null;
 
-			@Override
-			protected MuPDFAlert doInBackground(Void... arg0) {
-				if (!mAlertsActive)
-					return null;
+                return mCore.waitForAlert();
+            }
 
-				return core.waitForAlert();
-			}
+            @SuppressWarnings("deprecation")
+            @Override
+            protected void onPostExecute(final MuPDFAlert result) {
+                // core.waitForAlert may return null when shutting down
+                if (result == null)
+                    return;
+                final MuPDFAlert.ButtonPressed pressed[] = new MuPDFAlert.ButtonPressed[3];
+                for(int i = 0; i < 3; i++) {
+                    pressed[i] = MuPDFAlert.ButtonPressed.None;
+                }
+                DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        mAlertDialog = null;
+                        if (mAlertsActive) {
+                            int index = 0;
+                            switch (which) {
+                            case AlertDialog.BUTTON1: index=0; break;
+                            case AlertDialog.BUTTON2: index=1; break;
+                            case AlertDialog.BUTTON3: index=2; break;
+                            }
+                            result.buttonPressed = pressed[index];
+                            // Send the user's response to the core, so that it can
+                            // continue processing.
+                            mCore.replyToAlert(result);
+                            // Create another alert-waiter to pick up the next alert.
+                            createAlertWaiter();
+                        }
+                    }
+                };
+                mAlertDialog = mAlertBuilder.create();
+                mAlertDialog.setTitle(result.title);
+                mAlertDialog.setMessage(result.message);
+                switch (result.iconType)
+                {
+                case Error:
+                    break;
+                case Warning:
+                    break;
+                case Question:
+                    break;
+                case Status:
+                    break;
+                }
+                switch (result.buttonGroupType)
+                {
+                case OkCancel:
+                    mAlertDialog.setButton(AlertDialog.BUTTON2, getString(R.string.cancel), listener);
+                    pressed[1] = MuPDFAlert.ButtonPressed.Cancel;
+                case Ok:
+                    mAlertDialog.setButton(AlertDialog.BUTTON1, getString(R.string.okay), listener);
+                    pressed[0] = MuPDFAlert.ButtonPressed.Ok;
+                    break;
+                case YesNoCancel:
+                    mAlertDialog.setButton(AlertDialog.BUTTON3, getString(R.string.cancel), listener);
+                    pressed[2] = MuPDFAlert.ButtonPressed.Cancel;
+                case YesNo:
+                    mAlertDialog.setButton(AlertDialog.BUTTON1, getString(R.string.yes), listener);
+                    pressed[0] = MuPDFAlert.ButtonPressed.Yes;
+                    mAlertDialog.setButton(AlertDialog.BUTTON2, getString(R.string.no), listener);
+                    pressed[1] = MuPDFAlert.ButtonPressed.No;
+                    break;
+                }
+                mAlertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    public void onCancel(DialogInterface dialog) {
+                        mAlertDialog = null;
+                        if (mAlertsActive) {
+                            result.buttonPressed = MuPDFAlert.ButtonPressed.None;
+                            mCore.replyToAlert(result);
+                            createAlertWaiter();
+                        }
+                    }
+                });
 
-			@SuppressWarnings("deprecation")
-			@Override
-			protected void onPostExecute(final MuPDFAlert result) {
-				// core.waitForAlert may return null when shutting down
-				if (result == null)
-					return;
-				final MuPDFAlert.ButtonPressed pressed[] = new MuPDFAlert.ButtonPressed[3];
-				for(int i = 0; i < 3; i++)
-					pressed[i] = MuPDFAlert.ButtonPressed.None;
-				DialogInterface.OnClickListener listener = new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int which) {
-						mAlertDialog = null;
-						if (mAlertsActive) {
-							int index = 0;
-							switch (which) {
-							case AlertDialog.BUTTON1: index=0; break;
-							case AlertDialog.BUTTON2: index=1; break;
-							case AlertDialog.BUTTON3: index=2; break;
-							}
-							result.buttonPressed = pressed[index];
-							// Send the user's response to the core, so that it can
-							// continue processing.
-							core.replyToAlert(result);
-							// Create another alert-waiter to pick up the next alert.
-							createAlertWaiter();
-						}
-					}
-				};
-				mAlertDialog = mAlertBuilder.create();
-				mAlertDialog.setTitle(result.title);
-				mAlertDialog.setMessage(result.message);
-				switch (result.iconType)
-				{
-				case Error:
-					break;
-				case Warning:
-					break;
-				case Question:
-					break;
-				case Status:
-					break;
-				}
-				switch (result.buttonGroupType)
-				{
-				case OkCancel:
-					mAlertDialog.setButton(AlertDialog.BUTTON2, getString(R.string.cancel), listener);
-					pressed[1] = MuPDFAlert.ButtonPressed.Cancel;
-				case Ok:
-					mAlertDialog.setButton(AlertDialog.BUTTON1, getString(R.string.okay), listener);
-					pressed[0] = MuPDFAlert.ButtonPressed.Ok;
-					break;
-				case YesNoCancel:
-					mAlertDialog.setButton(AlertDialog.BUTTON3, getString(R.string.cancel), listener);
-					pressed[2] = MuPDFAlert.ButtonPressed.Cancel;
-				case YesNo:
-					mAlertDialog.setButton(AlertDialog.BUTTON1, getString(R.string.yes), listener);
-					pressed[0] = MuPDFAlert.ButtonPressed.Yes;
-					mAlertDialog.setButton(AlertDialog.BUTTON2, getString(R.string.no), listener);
-					pressed[1] = MuPDFAlert.ButtonPressed.No;
-					break;
-				}
-				mAlertDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-					public void onCancel(DialogInterface dialog) {
-						mAlertDialog = null;
-						if (mAlertsActive) {
-							result.buttonPressed = MuPDFAlert.ButtonPressed.None;
-							core.replyToAlert(result);
-							createAlertWaiter();
-						}
-					}
-				});
-
-				mAlertDialog.show();
-			}
-		};
-
-		mAlertTask.executeOnExecutor(new ThreadPerTaskExecutor());
-	}
-
-	public void destroyAlertWaiter() {
-		mAlertsActive = false;
-		if (mAlertDialog != null) {
-			mAlertDialog.cancel();
-			mAlertDialog = null;
-		}
-		if (mAlertTask != null) {
-			mAlertTask.cancel(true);
-			mAlertTask = null;
-		}
-	}
-
-	private MuPDFCore openFile(String path)
-	{
-		try
-		{
-			core = new MuPDFCore(this, path);
-
-		}
-		catch (Exception e)
-		{
-			System.out.println(e);
-			return null;
-		}
-		return core;
-	}
-
-	private MuPDFCore openBuffer(byte buffer[], String magic)
-	{
-		try
-		{
-			core = new MuPDFCore(this, buffer, magic);
-			// New file: drop the old outline data
-
-		}
-		catch (Exception e)
-		{
-			System.out.println(e);
-			return null;
-		}
-		return core;
-	}
-	
-	
-	/**
-	 * Initializes the buttons (zoom/next page etc), and loads the PDF.
-	 */
-	private void startPDF() {
-    	final MuPDFActivity thisPointer = this;
-    	 
-		// add click listeners for buttons and labels 
-        final ImageView exitAppButton = (ImageView) findViewById(R.id.exitAppButton);
-        final ImageView zoomInButton = (ImageView) findViewById(R.id.zoomInButton);
-        final ImageView zoomOutButton = (ImageView) findViewById(R.id.zoomOutButton);
-        final ImageView goUpButton = (ImageView) findViewById(R.id.goUpButton);
-        final ImageView goDownButton = (ImageView) findViewById(R.id.goDownButton);
-        
-        
-        final TextView exitAppText = (TextView) findViewById(R.id.exitAppText);
-        final TextView zoomInText = (TextView) findViewById(R.id.zoomInText);
-        final TextView zoomOutText = (TextView) findViewById(R.id.zoomOutText);
-        final TextView goUpText= (TextView) findViewById(R.id.goUpText);
-        final TextView goDownText = (TextView) findViewById(R.id.goDownText);
-        final TextView pageNumberTextView = (TextView) findViewById(R.id.pageNumberText);
-        
-        OnClickListener buttonListener = new OnClickListener() {
-			
-			public void onClick(View view) {
-				if (view.getId() == R.id.exitAppButton){
-					System.exit(0);
-				} else if (view.getId() == R.id.zoomInButton){ // zoom in
-					switch (mZoomLevel){ // zoom level can go from 1-4: 1=fit height to screen, 2=fit width to screen, 3+4 = zoom in more
-					case 1:
-						mZoomLevel++;
-						zoomOutButton.setImageResource(R.drawable.zoom_out);
-						break;
-					case 2:
-						mZoomLevel++;
-						break;
-					case 3:
-						mZoomLevel++;
-						zoomInButton.setImageResource(R.drawable.zoom_in_disabled);
-						break;
-					}
-					mDocView.zoomToLevel(mZoomLevel);
-
-
-				} else if (view.getId() == R.id.zoomOutButton){
-					
-					switch (mZoomLevel){
-					case 2:
-						mZoomLevel--;
-						zoomOutButton.setImageResource(R.drawable.zoom_out_disabled);
-						break;
-					case 3:
-						mZoomLevel--;
-						break;
-					case 4:
-						mZoomLevel--;
-						zoomInButton.setImageResource(R.drawable.zoom_in);
-						break;
-					}
-					mDocView.zoomToLevel(mZoomLevel);
-
-				} else if (view.getId() == R.id.goUpButton || view.getId() == R.id.goUpText){ // go to previous page
-					mDocView.moveToPrevious();	
-				} else if (view.getId() == R.id.goDownButton || view.getId() == R.id.goDownText){ // go to next page
-				    mDocView.moveToNext(); 
-				}
-				
-			}
-		};
-        
-        exitAppButton.setOnClickListener(buttonListener);
-        zoomInButton.setOnClickListener(buttonListener);
-        zoomOutButton.setOnClickListener(buttonListener);
-        goUpButton.setOnClickListener(buttonListener);
-        goDownButton.setOnClickListener(buttonListener);
-        
-        exitAppText.setOnClickListener(buttonListener);
-        zoomInText.setOnClickListener(buttonListener);
-        zoomOutText.setOnClickListener(buttonListener);
-        goUpText.setOnClickListener(buttonListener);
-        goDownText.setOnClickListener(buttonListener);
-        
-        
-        
-        
-        
-        
-        
-        // now load the PDF in the background
-		
-    	AsyncTask<Void, Void, Void> pdfLoader = new AsyncTask<Void, Void, Void>(){
-    		@Override
-			protected Void doInBackground(Void... params) {
-    			getPDF(); // do the actual loading
-    			return null;
-    		}
-    		    
-    		@Override
-    		protected void onPostExecute(Void result) {
-
-    			// show the progress bar
-    			RelativeLayout layout = (RelativeLayout) findViewById(R.id.background);
-    			layout.setBackgroundResource(R.drawable.background_green);
-    			View progressLayout = findViewById(R.id.progressLayout);
-    			progressLayout.setVisibility(View.GONE);
-
-    			
-    			if (core == null) // if something went wrong, display error dialog and then quit
-    			{
-    				AlertDialog alert = mAlertBuilder.create();
-    				alert.setTitle(R.string.cannot_open_document);
-    				alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dismiss),
-    						new DialogInterface.OnClickListener() {
-    							public void onClick(DialogInterface dialog, int which) {
-    								finish();
-    							}
-    						});
-    				alert.setOnCancelListener(new OnCancelListener() {
-
-    					@Override
-    					public void onCancel(DialogInterface dialog) {
-    						finish();
-    					}
-    				});
-    				alert.show();
-    				return;
-    			}
-    			
-    			
-
-    			// Now create the UI.
-    			// First create the document view
-    			mDocView = new MuPDFReaderView(thisPointer) {
-    				@Override
-    				protected void onMoveToChild(int i) {
-    					if (core == null)
-    						return;
-
-    			    	
-    					pageNumberTextView.setText(String.format(getResources().getString(R.string.pageNumber), i + 1, core.countPages()));
-    					if (i == 0){
-    						goDownButton.setImageResource(R.drawable.next_page);
-    						goUpButton.setImageResource(R.drawable.previous_page_disabled);
-    					} else if (i == core.countPages() - 1) {
-    						goUpButton.setImageResource(R.drawable.previous_page);
-    						goDownButton.setImageResource(R.drawable.next_page_disabled);
-    					} else {
-    						goUpButton.setImageResource(R.drawable.previous_page);
-    						goDownButton.setImageResource(R.drawable.next_page);
-    					}
-    					
-
-    					super.onMoveToChild(i);
-    				}
-
-    				@Override
-    				protected void onTapMainDocArea() {
-    				}
-
-    				@Override
-    				protected void onDocMotion() {
-    				}
-
-    				@Override
-    				protected void onHit(Hit item) {
-
-    				}
-    			};
-    			mDocView.setAdapter(new MuPDFPageAdapter(thisPointer, core));
-    		
-    			// Reinstate last state if it was recorded
-//    			SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
-//    			mDocView.setDisplayedViewIndex(prefs.getInt("page"+mFileName, 0));
-
-    			// display PDF page left of menu bar
-    			RelativeLayout.LayoutParams lay = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
-    			lay.addRule(RelativeLayout.LEFT_OF, R.id.exitAppButton);
-				
-    			layout.addView(mDocView, lay);
-    			pageNumberTextView.setText(String.format(getResources().getString(R.string.pageNumber), 1, core.countPages())); // show current page
-    		}
-    		        
-    	};
-    	pdfLoader.execute();
+                mAlertDialog.show();
+            }
+        };
+        mAlertTask.executeOnExecutor(new ThreadPerTaskExecutor());
     }
-	
-	
-	/**
-	 * Loads the PDF file
-	 */
-	private void getPDF(){
-		if (core == null) {
-			final ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
-	        final TextView progressPercentText = (TextView) findViewById(R.id.progressPercentText);
-			Intent intent = getIntent();
-			byte buffer[] = null;
-			
-			String uriString = intent.getStringExtra("uri");
-			Uri uri = null;
-			
-			if (uriString == null){ // the PDF file name should be delivered via an intent
-				Log.e(TAG, "Please start with Intent to PDF file");
-				uri = Uri.parse("http://www.act.org/compass/sample/pdf/reading.pdf"); 	 //this is just for development; display a PDF if started without intent
-//				System.exit(0); // this should be done instead of the previous line
-			} else {
-				uri = Uri.parse(uriString);
-			}
 
-			
-			// load PDF from tablet
-			if (uri.toString().startsWith("content://")) {
-				String reason = null;
-				try {
-					InputStream is = getContentResolver().openInputStream(uri);
-					int len = is.available();
-					buffer = new byte[len];
-					is.read(buffer, 0, len);
-					is.close();
-				}
-				catch (java.lang.OutOfMemoryError e) {
-					Log.e(TAG, "Out of memory during buffer reading");
-					reason = e.toString();
-				}
-				catch (Exception e) {
-					Log.e(TAG, "Exception reading from stream: " + e);
+    public void destroyAlertWaiter() {
+        mAlertsActive = false;
+        if (mAlertDialog != null) {
+            mAlertDialog.cancel();
+            mAlertDialog = null;
+        }
+        if (mAlertTask != null) {
+            mAlertTask.cancel(true);
+            mAlertTask = null;
+        }
+    }
 
-					// Handle view requests from the Transformer Prime's file manager
-					// Hopefully other file managers will use this same scheme, if not
-					// using explicit paths.
-					// I'm hoping that this case below is no longer needed...but it's
-					// hard to test as the file manager seems to have changed in 4.x.
-					try {
-						Cursor cursor = getContentResolver().query(uri, new String[]{"_data"}, null, null, null);
-						if (cursor.moveToFirst()) {
-							String str = cursor.getString(0);
-							if (str == null) {
-								reason = "Couldn't parse data in intent";
-							}
-							else {
-								uri = Uri.parse(str);
-							}
-						}
-					}
-					catch (Exception e2) {
-						Log.e(TAG, "Exception in Transformer Prime file manager code: " + e2);
-						reason = e2.toString();
-					}
-				}
-				if (reason != null) {
-					buffer = null;
-					Resources res = getResources();
-					AlertDialog alert = mAlertBuilder.create();
-					setTitle(String.format(res.getString(R.string.cannot_open_document_Reason), reason));
-					alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dismiss),
-							new DialogInterface.OnClickListener() {
-								public void onClick(DialogInterface dialog, int which) {
-									finish();
-								}
-							});
-					alert.show();
-					return;
-				}
-			} else if (uri.getScheme().equals("http") || uri.getScheme().equals("https")) { // load PDF from http address
-	    		try {
-	    			// create Documents folder if not existing
-	    			//File folder = new File(Environment.getExternalStorageDirectory().getPath() + "/Documents");
+    private MuPDFCore openBuffer(byte buffer[], String magic) {
+        try {
+            mCore = new MuPDFCore(this, buffer, magic);
+            // New file: drop the old outline data
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            sLogging.error(e);
+            return null;
+        }
+        return mCore;
+    }
 
-					// if the directory does not exist, create it
-//					if (!folder.exists()) {
-//					   folder.mkdir();
-//					}
-	    			
-					URL url = new URL(uri.toString());
-					URLConnection connection = url.openConnection();
-					int size = connection.getContentLength(); // get size of document
-					
-					
-					InputStream in = connection.getInputStream();
-//						FileOutputStream fos = new FileOutputStream(new File(Environment.getExternalStorageDirectory().getPath() + "/Documents/test.pdf")); // download file
-					ByteArrayOutputStream fos = new ByteArrayOutputStream();
-					
-					byte[] buf = new byte[4096];
-					double sumCount = 0.0;
-					while (true) { // actual downloading
-					    int len = in.read(buf);
-					    if (size > 0){
-						    sumCount += len;
-						    final int percentage = (int) (sumCount / size * 100);
-						    runOnUiThread(new Runnable(){ // update progress bar
-								public void run() {
-								    progressBar.setProgress(percentage);
-								    progressPercentText.setText(percentage + " %");
-								}
-						    });
-						    
+    private void saveLastOpenedPage(){
+        if (mDocView != null && mPdfMD5 != null){
+            // Store current page in the prefs against the file name,
+            // so that we can pick it up each time the file is loaded
+            // Other info is needed only for screen-orientation change,
+            // so it can go in the bundle
+            SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+            SharedPreferences.Editor edit = prefs.edit();
+            edit.putInt("page" + mPdfMD5, mDocView.getDisplayedViewIndex());
+            edit.putInt("zoom" + mPdfMD5, mZoomLevel);
+            edit.commit();
+        }
+    }
 
-					    }
-					    
-					    if (len == -1) {
-					        break;
-					    }
-					    fos.write(buf, 0, len);
-					}
-					buffer = fos.toByteArray();
-					in.close();
-					fos.flush();
-					fos.close();
-					
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.exit(1);
-				}
-	    	}
-			
-			
-			
-			
-			// load buffer
-			if (buffer != null) {
-				core = openBuffer(buffer, intent.getType());
-			} else {
-				core = openFile(Uri.decode(uri.getEncodedPath()));
-			}
+    private void setZoomLevel(int zoomLevel){
+        if (zoomLevel < 1 || zoomLevel > 4){
+            return;
+        }
 
-			if (core != null && core.needsPassword()) {
-//				requestPassword(savedInstanceState); // TODO support password protected files
-				return;
-			}
-			if (core != null && core.countPages() == 0)
-			{
-				core = null;
-			}
-		}
-	}
-	
-	
+        mZoomLevel = zoomLevel;
 
-	/** Called when the activity is first created. */
-	@Override
-	public void onCreate(Bundle savedInstanceState)
-	{
-		super.onCreate(savedInstanceState);
+        runOnUiThread(new Runnable(){
 
-		mAlertBuilder = new AlertDialog.Builder(this);
+            @Override
+            public void run() {
+                switch (mZoomLevel){ // zoom level can go from 1-4: 1=fit height to screen, 2=fit width to screen, 3+4 = zoom in more
+                case 1:
+                    mZoomOutButton.setImageResource(R.drawable.zoom_out_disabled);
+                    mZoomInButton.setImageResource(R.drawable.zoom_in);
+                    break;
+                case 2:
+                    mZoomOutButton.setImageResource(R.drawable.zoom_out);
+                    mZoomInButton.setImageResource(R.drawable.zoom_in);
+                    break;
+                case 3:
+                    mZoomOutButton.setImageResource(R.drawable.zoom_out);
+                    mZoomInButton.setImageResource(R.drawable.zoom_in);
+                    break;
+                case 4:
+                    mZoomOutButton.setImageResource(R.drawable.zoom_out);
+                    mZoomInButton.setImageResource(R.drawable.zoom_in_disabled);
+                    break;
+                }
+                mDocView.zoomToLevel(mZoomLevel);
+            }
+        });
+    }
 
-//		if (core == null) {
-//			core = (MuPDFCore)getLastNonConfigurationInstance();
-//
-//			if (savedInstanceState != null && savedInstanceState.containsKey("FileName")) {
-//				mFileName = savedInstanceState.getString("FileName");
-//			}
-//		}
-		
-	
-		Intent intent = getIntent();
-		String language = (intent.getStringExtra("language") == null) ? "english" : intent.getStringExtra("language"); // check if language is selected via intent; otherwise, use "english"
-		
-		if (!language.equals("english")){ // switch to another language
-			Resources res = getResources();
-		    // Change locale settings in the app.
-		    DisplayMetrics dm = res.getDisplayMetrics();
-		    android.content.res.Configuration conf = res.getConfiguration();
-		    String languageCode = "en";
-		    if (language.equals("spanish"))
-		    	languageCode = "es";
-		    
-		    conf.locale = new Locale(languageCode);
-		    res.updateConfiguration(conf, dm);
-		}
+    /**
+     * Initializes the buttons (zoom/next page etc), and loads the PDF.
+     */
+    private void initPDF() {    	 
+        // Navigation, zooming buttons
+        mExitAppButton = (ImageView) findViewById(R.id.exitAppButton);
+        mZoomInButton = (ImageView) findViewById(R.id.zoomInButton);
+        mZoomOutButton = (ImageView) findViewById(R.id.zoomOutButton);
+        mGoUpButton = (ImageView) findViewById(R.id.goUpButton);
+        mGoDownButton = (ImageView) findViewById(R.id.goDownButton);
 
-		// Stick the document view and the buttons overlay into a parent view
-		setContentView(R.layout.mainactivity);
-				
-		// load the PDF
-		startPDF();
-	}
+        // Navigation, zooming text labels
+        mExitAppText = (TextView) findViewById(R.id.exitAppText);
+        mZoomInText = (TextView) findViewById(R.id.zoomInText);
+        mZoomOutText = (TextView) findViewById(R.id.zoomOutText);
+        mGoUpText= (TextView) findViewById(R.id.goUpText);
+        mGoDownText = (TextView) findViewById(R.id.goDownText);
+        mPageNumberTextView = (TextView) findViewById(R.id.pageNumberText);
 
-//	public void requestPassword(final Bundle savedInstanceState) {
-//		mPasswordView = new EditText(this);
-//		mPasswordView.setInputType(EditorInfo.TYPE_TEXT_VARIATION_PASSWORD);
-//		mPasswordView.setTransformationMethod(new PasswordTransformationMethod());
-//
-//		AlertDialog alert = mAlertBuilder.create();
-//		alert.setTitle(R.string.enter_password);
-//		alert.setView(mPasswordView);
-//		alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.okay),
-//				new DialogInterface.OnClickListener() {
-//			public void onClick(DialogInterface dialog, int which) {
-//				if (core.authenticatePassword(mPasswordView.getText().toString())) {
-//					createUI(savedInstanceState);
-//				} else {
-//					requestPassword(savedInstanceState);
-//				}
-//			}
-//		});
-//		alert.setButton(AlertDialog.BUTTON_NEGATIVE, getString(R.string.cancel),
-//				new DialogInterface.OnClickListener() {
-//
-//			public void onClick(DialogInterface dialog, int which) {
-//				finish();
-//			}
-//		});
-//		alert.show();
-//	}
+        // Handle navigation / zooming button events
+        OnClickListener buttonListener = new OnClickListener() {
 
+            public void onClick(View view) {
+                // close the pdfreader
+                if (view.getId() == R.id.exitAppButton){
+                    mStop = true;
+                    Intent stopIntent = new Intent("com.on4today.chromium.On4TodayBridge.A_INTENT");
+                    
+                    // stop loading the pdf file from the bridge
+                    sendBroadcast(stopIntent.putExtra("stop_loading", true));
 
+                    // stop the broadcasting
+                    // check if it's already unregistered
+                    if (mFileReceiver != null) {
+                        try {
+                            // stop the broadcasting
+                            unregisterReceiver(mFileReceiver);
+                        } catch (IllegalArgumentException ex) {
+                            ex.printStackTrace();
+                            sLogging.error(ex);
+                        }
+                        mFileReceiver = null;
+                    }
+                    finish();
+                }
 
-//	public Object onRetainNonConfigurationInstance()
-//	{
-//		MuPDFCore mycore = core;
-//		core = null;
-//		return mycore;
-//	}
-//
-//
-//
-//	@Override
-//	protected void onSaveInstanceState(Bundle outState) {
-//		super.onSaveInstanceState(outState);
-//
-//		if (mFileName != null && mDocView != null) {
-//			outState.putString("FileName", mFileName);
-//
-//			// Store current page in the prefs against the file name,
-//			// so that we can pick it up each time the file is loaded
-//			// Other info is needed only for screen-orientation change,
-//			// so it can go in the bundle
-//			SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
-//			SharedPreferences.Editor edit = prefs.edit();
-//			edit.putInt("page"+mFileName, mDocView.getDisplayedViewIndex());
-//			edit.commit();
-//		}
-//
-//	}
+                // disable navigation, zoom buttons when loading the file
+                if (mFileLoaded) {
+                    if (view.getId() == R.id.zoomInButton || view.getId() == R.id.zoomInText){ // zoom in
+                        setZoomLevel(mZoomLevel + 1);
+                    } else if (view.getId() == R.id.zoomOutButton || view.getId() == R.id.zoomOutText){ // zoom out
+                        setZoomLevel(mZoomLevel - 1);
+                    } else if (view.getId() == R.id.goUpButton || view.getId() == R.id.goUpText){ // go to previous page
+                        mDocView.moveToPrevious();	
+                    } else if (view.getId() == R.id.goDownButton || view.getId() == R.id.goDownText){ // go to next page
+                        mDocView.moveToNext(); 
+                    }
+                }
+            }
+        };
 
-	@Override
-	protected void onPause() {
-		super.onPause();
+        // set click events button
+        mExitAppButton.setOnClickListener(buttonListener);
+        mZoomInButton.setOnClickListener(buttonListener);
+        mZoomOutButton.setOnClickListener(buttonListener);
+        mGoUpButton.setOnClickListener(buttonListener);
+        mGoDownButton.setOnClickListener(buttonListener);
+        mExitAppText.setOnClickListener(buttonListener);
+        mZoomInText.setOnClickListener(buttonListener);
+        mZoomOutText.setOnClickListener(buttonListener);
+        mGoUpText.setOnClickListener(buttonListener);
+        mGoDownText.setOnClickListener(buttonListener);
 
+        // loading bar
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+        mProgressPercentText = (TextView) findViewById(R.id.progressPercentText);
+    }
 
-//		if (mFileName != null && mDocView != null) {
-//			SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
-//			SharedPreferences.Editor edit = prefs.edit();
-//			edit.putInt("page"+mFileName, mDocView.getDisplayedViewIndex());
-//			edit.commit();
-//		}
-	}
+    private void loadPDF(byte[] buffer) {		
+        mCore = openBuffer(buffer, null);
+        mPdfMD5 = calculateMd5(buffer, null);
 
-	public void onDestroy()
-	{
-		if (mDocView != null) {
-			mDocView.applyToChildren(new ReaderView.ViewMapper() {
-				void applyToView(View view) {
-					((MuPDFView)view).releaseBitmaps();
-				}
-			});
-		}
-		if (core != null)
-			core.onDestroy();
-		if (mAlertTask != null) {
-			mAlertTask.cancel(true);
-			mAlertTask = null;
-		}
-		core = null;
-		super.onDestroy();
-	}
+        // show the progress bar
+        RelativeLayout layout = (RelativeLayout) findViewById(R.id.background);
+        layout.setBackgroundResource(R.drawable.background_green);
+        View progressLayout = findViewById(R.id.progressLayout);
+        progressLayout.setVisibility(View.GONE);
 
+        // if something went wrong, display error dialog and then quit
+        if (mCore == null) {
+            AlertDialog alert = mAlertBuilder.create();
+            alert.setTitle(R.string.cannot_open_document);
+            alert.setButton(AlertDialog.BUTTON_POSITIVE, getString(R.string.dismiss),
+                    new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int which) {
+                    finish();
+                }
+            });
+            alert.setOnCancelListener(new OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    finish();
+                }
+            });
+            alert.show();
+            return;
+        }
 
+        // Now create the UI.
+        // First create the document view
+        mDocView = new MuPDFReaderView(this) {
 
-//	private void updatePageNumView(int index) {
-//		if (core == null)
-//			return;
-//		
-//		final ImageView goUpButton = (ImageView) findViewById(R.id.goUpButton);
-//        final ImageView goDownButton = (ImageView) findViewById(R.id.goDownButton);
-//        final TextView pageNumberTextView = (TextView) findViewById(R.id.pageNumberText);
-//
-//        
-//		pageNumberTextView.setText(String.format(getResources().getString(R.string.pageNumber), index + 1, core.countPages()));
-//		if (index == 0){
-//			goDownButton.setImageResource(R.drawable.next_page);
-//			goUpButton.setImageResource(R.drawable.previous_page_disabled);
-//		} else if (index == core.countPages() - 1) {
-//			goUpButton.setImageResource(R.drawable.previous_page);
-//			goDownButton.setImageResource(R.drawable.next_page_disabled);
-//		} else {
-//			goUpButton.setImageResource(R.drawable.previous_page);
-//			goDownButton.setImageResource(R.drawable.next_page);
-//		}
-//	}
+            @Override
+            protected void onMoveToChild(int i) {
+                if (mCore == null)
+                    return;
 
+                mPageNumberTextView.setText(String.format(getResources().getString(R.string.pageNumber), i + 1, mCore.countPages()));
+                if (i == 0){
+                    mGoDownButton.setImageResource(R.drawable.next_page);
+                    mGoUpButton.setImageResource(R.drawable.previous_page_disabled);
+                } else if (i == mCore.countPages() - 1) {
+                    mGoUpButton.setImageResource(R.drawable.previous_page);
+                    mGoDownButton.setImageResource(R.drawable.next_page_disabled);
+                } else {
+                    mGoUpButton.setImageResource(R.drawable.previous_page);
+                    mGoDownButton.setImageResource(R.drawable.next_page);
+                }		
+                super.onMoveToChild(i);
+            }
 
+            @Override
+            protected void onTapMainDocArea() {
+            }
 
-	@Override
-	protected void onStart() {
-		if (core != null)
-		{
-			core.startAlerts();
-			createAlertWaiter();
-		}
+            @Override
+            protected void onDocMotion() {
+            }
 
-		super.onStart();
-	}
+            @Override
+            protected void onHit(Hit item) {
 
-	@Override
-	protected void onStop() {
-		if (core != null)
-		{
-			destroyAlertWaiter();
-			core.stopAlerts();
-		}
+            }
+        };
+        mDocView.setAdapter(new MuPDFPageAdapter(this, mCore));
 
-		super.onStop();
-	}
+        // Reinstate last state if it was recorded
+        SharedPreferences prefs = getPreferences(Context.MODE_PRIVATE);
+        int pageNum = prefs.getInt("page" + mPdfMD5, 0);
+        mDocView.setDisplayedViewIndex(pageNum);
 
-	
+        final int zoomLevel = prefs.getInt("zoom" + mPdfMD5, 1);
+        // the children must load first before the zoom level can be set
+        mDocView.addPostSettleTask(new Runnable(){
+            @Override
+            public void run() {
+                setZoomLevel(zoomLevel);
+            }
+        });
+
+        // display PDF page left of menu bar
+        RelativeLayout.LayoutParams lay = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        lay.addRule(RelativeLayout.LEFT_OF, R.id.exitAppButton);
+
+        layout.addView(mDocView, lay);
+        mPageNumberTextView.setText(String.format(getResources().getString(R.string.pageNumber), pageNum + 1, mCore.countPages())); // show current page
+
+        // now that the file is loaded, activate navigation, zooming buttons
+        mFileLoaded = true;
+    }
+
+    // FileReceiver class is used to receive local pdf between the bridge and mupdf
+    private class FileReceiver extends BroadcastReceiver {
+        private MuPDFActivity mMupdf;
+        private ByteArrayOutputStream mFos;
+        private Intent mBridgeIntent;
+
+        // instantiate the broadcaster
+        public FileReceiver(MuPDFActivity mupdf) {
+            mBridgeIntent = new Intent("com.on4today.chromium.On4TodayBridge.A_INTENT");
+
+            mMupdf = mupdf;
+            mFos = new ByteArrayOutputStream();
+
+            // Let the bridge know that the receiver is ready to receive the pdf bytes
+            mMupdf.sendBroadcast(mBridgeIntent.putExtra("ready_to_load", true));
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // load a section of the pdf bytes
+            if (intent.getStringExtra("loading") != null) {
+                // update the progress bar
+                mMupdf.getProgressBar().setProgress(Integer.parseInt(intent.getStringExtra("loading")));
+                mMupdf.getProgressPercentText().setText(intent.getStringExtra("loading") + " %");
+
+                // write the bytes to the buffer
+                mFos.write(intent.getByteArrayExtra("buffer"), 0, intent.getIntExtra("len", 0));
+            }
+
+            // when the all the bytes are sent open the file
+            if (intent.getBooleanExtra("ready_to_open", false)) {
+                byte buffer[] = mFos.toByteArray();
+
+                // make sure to free the buffer
+                try {
+                    mFos.flush();
+                    mFos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                // load the PDF
+                loadPDF(buffer);
+            }
+        }
+    }
+
+    // Open external pdf
+    AsyncTask<Void, Void, Void> loadExternalPDF = new AsyncTask<Void, Void, Void>(){
+        private String mDemoUrl = "http://www.act.org/compass/sample/pdf/reading.pdf";
+        private byte[] mData;
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            try {
+                ByteArrayOutputStream fos = new ByteArrayOutputStream();
+                URL url = new URL(mDemoUrl);
+                URLConnection connection = url.openConnection();
+                int size = connection.getContentLength(); // get size of document
+
+                InputStream in = connection.getInputStream();
+
+                byte[] buf = new byte[4096];
+                double sumCount = 0.0;
+                while (true) { // actual downloading
+                    int len = in.read(buf);
+                    if (size > 0) {
+                        sumCount += len;
+                        final int percentage = (int) (sumCount / size * 100);
+                        runOnUiThread(new Runnable(){ // update progress bar
+                            public void run() {
+                                mProgressBar.setProgress(percentage);
+                                mProgressPercentText.setText(percentage + " %");
+                            }
+                        });
+                    }
+
+                    if (len == -1) {
+                        break;
+                    }
+                    fos.write(buf, 0, len);
+                }
+                mData = fos.toByteArray();
+                in.close();
+                fos.flush();
+                fos.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+                finish();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            // load the PDF
+            loadPDF(mData);
+        }
+    };
+
+    public ProgressBar getProgressBar() {
+        return mProgressBar;
+    }
+
+    public void setProgressBar(ProgressBar pProgressBarp) {
+        mProgressBar = pProgressBarp;
+    }
+
+    public TextView getProgressPercentText() {
+        return mProgressPercentText;
+    }
+
+    public void setProgressPercentText(TextView pProgressPercentTextp) {
+        mProgressPercentText = pProgressPercentTextp;
+    }
+
+    /** Called when the activity is first created. */
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        mAlertBuilder = new AlertDialog.Builder(this);
+
+        Intent intent = getIntent();
+        String language = (intent.getStringExtra("language") == null) ? "english" : intent.getStringExtra("language"); // check if language is selected via intent; otherwise, use "english"
+
+        if (!language.equals("english")){ // switch to another language
+            Resources res = getResources();
+            // Change locale settings in the app.
+            DisplayMetrics dm = res.getDisplayMetrics();
+            android.content.res.Configuration conf = res.getConfiguration();
+            String languageCode = "en";
+            if (language.equals("spanish"))
+                languageCode = "es";
+
+            conf.locale = new Locale(languageCode);
+            res.updateConfiguration(conf, dm);
+        }
+
+        // Stick the document view and the buttons overlay into a parent view
+        setContentView(R.layout.mainactivity);
+
+        // instantiate pdfreader GUI
+        initPDF();
+
+        // run the broadcaster and load the PDF locally
+        if (intent.getBooleanExtra("open_local_pdf", false)) {
+            // create a new receiver
+            mFileReceiver = new FileReceiver(this);
+            // register the broadcast receiver, so it can be called from the bridge
+            registerReceiver(mFileReceiver, new IntentFilter("com.artifex.mupdfdemo.MuPDFActivity.A_CUSTOM_INTENT"));
+        } else {
+            // download and open demo PDF
+            loadExternalPDF.execute();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        saveLastOpenedPage();
+    }
+
+    @Override
+    protected void onPause() {
+        // In case the onDestroy is not called
+        // check if it's already unregistered
+        if (mFileReceiver != null) {
+            try {
+                // stop the broadcasting
+                this.unregisterReceiver(mFileReceiver);
+            } catch (IllegalArgumentException ex) {
+                ex.printStackTrace();
+                sLogging.error(ex);
+            }
+            mFileReceiver = null;
+        }
+        super.onPause();
+        saveLastOpenedPage();
+    }
+
+    public void onDestroy() {
+        // check if it's already unregistered
+        if (mFileReceiver != null) {
+            try {
+                // stop the broadcasting
+                this.unregisterReceiver(mFileReceiver);
+            } catch (IllegalArgumentException ex) {
+                ex.printStackTrace();
+                sLogging.error(ex);
+            }
+            mFileReceiver = null;
+        }
+        if (mDocView != null) {
+            saveLastOpenedPage();
+
+            mDocView.applyToChildren(new ReaderView.ViewMapper() {
+                void applyToView(View view) {
+                    ((MuPDFView)view).releaseBitmaps();
+                }
+            });
+        }
+        if (mCore != null)
+            mCore.onDestroy();
+        if (mAlertTask != null) {
+            mAlertTask.cancel(true);
+            mAlertTask = null;
+        }
+        mCore = null;
+        super.onDestroy();
+    }
+
+    /**
+     * Calculates MD5 of the given file
+     * @param file
+     * @return MD5 of empty String
+     */
+    @SuppressWarnings("unused")
+    private String calculateMd5(File file) {
+        return calculateMd5(file, (byte[][]) null);
+    }
+
+    /**
+     * Calculates MD5 of the given file
+     * @param file
+     * @param concatenatedWith
+     * @return MD5 of empty String
+     */
+    private String calculateMd5(File file, byte[]... concatenatedWith) {
+        InputStream inputStream = null;
+        try {
+            inputStream = new FileInputStream(file);
+            byte[] buffer = new byte[1024];
+            MessageDigest digest = MessageDigest.getInstance("MD5");
+            int numRead = 0;
+            while (numRead != -1) {
+                numRead = inputStream.read(buffer);
+                if (numRead > 0)
+                    digest.update(buffer, 0, numRead);
+            }
+
+            if (concatenatedWith != null){
+                for (byte[] byteArray : concatenatedWith){
+                    digest.update(byteArray);
+                }
+            }
+
+            byte [] md5Bytes = digest.digest();
+            String md5hash = "";
+            for (int i = 0; i < md5Bytes.length; i++) {
+                md5hash += Integer.toString(( md5Bytes[i] & 0xff ) + 0x100, 16).substring(1);
+            }
+
+            return md5hash;
+        } catch (Exception e) {
+            e.printStackTrace();
+            sLogging.error(e);
+            return "";
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (Exception e) { }
+            }
+        }
+    }
+
+    /**
+     * Calculates MD5 of the given buffer
+     * @param buffer
+     * @return MD5 of empty String
+     */
+    @SuppressWarnings("unused")
+    private String calculateMd5(byte[] buffer) {
+        return calculateMd5(buffer, (byte[][]) null);
+    }
+
+    /**
+     * Calculates MD5 of the given buffer concatenated with all the following byte arrays
+     * @param buffer
+     * @param concatenatedWith
+     * @return MD5 of empty String
+     */
+    private String calculateMd5(byte[] buffer, byte[]... concatenatedWith) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("MD5");
+            digest.update(buffer);
+
+            if (concatenatedWith != null){
+                for (byte[] byteArray : concatenatedWith){
+                    if (byteArray != null)
+                        digest.update(byteArray);
+                }
+            }
+
+            byte [] md5Bytes = digest.digest();
+            String md5hash = "";
+            for (int i = 0; i < md5Bytes.length; i++) {
+                md5hash += Integer.toString(( md5Bytes[i] & 0xff ) + 0x100, 16).substring(1);
+            }
+
+            return md5hash;
+        } catch (Exception e) {
+            e.printStackTrace();
+            sLogging.error(e);
+            return "";
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        if (mCore != null) {
+            mCore.startAlerts();
+            createAlertWaiter();
+        }
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        if (mCore != null) {
+            destroyAlertWaiter();
+            mCore.stopAlerts();
+        }
+        super.onStop();
+    }	
 }
