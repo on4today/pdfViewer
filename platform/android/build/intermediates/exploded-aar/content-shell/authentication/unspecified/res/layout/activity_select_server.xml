@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
+    android:keepScreenOn="true"
+    android:background="#000000">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/title_select_server_activity"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"/>
+
+    <ImageView
+        android:layout_width="fill_parent"
+        android:layout_height="2dip"
+        android:background="#FFFFFF"
+        android:layout_marginBottom="5dip"
+        android:layout_marginTop="5dip"/>
+
+    <RadioGroup
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:id="@+id/radio_group">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" >
+
+            <RadioButton android:id="@+id/custom_server"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:onClick="onRadioButtonClicked"
+                android:layout_marginBottom="10dip"/>
+
+            <EditText android:id="@+id/custom_server_text"
+                android:layout_width="300dip"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:maxLength="120"
+                android:inputType="text"
+                android:textColor="#FFFFFF"
+                android:background="#0A0A0A"
+                android:textSize="20sp"
+                android:text="https://"/>
+        </LinearLayout>
+
+        <RadioButton android:id="@+id/server1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server1"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server2"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:text="@string/server3"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server4"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server5"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server6"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server6"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <RadioButton android:id="@+id/server7"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="onRadioButtonClicked"
+            android:text="@string/server7"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+
+        <RadioButton android:id="@+id/server8"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/server8"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginBottom="10dip"/>
+
+        <Button android:id="@+id/okay"
+            android:layout_width="150dip"
+            android:layout_height="50dip"
+            android:text="@string/save_server"
+            android:textSize="20sp"
+            android:onClick="onSaveSelection"
+            android:layout_marginBottom="10dip"/>
+
+    </RadioGroup>
+</LinearLayout>
+<!-- From: file:/usr/local/var/www/android-authentication/res/layout/activity_select_server.xml -->

@@ -1,0 +1,52 @@
+body {
+  background-color: #BFD9E0;
+  font-family: Roboto, sans-serif;
+  }
+
+  .header {
+  width: 100%;
+  }
+
+  .logo {
+  margin: 15px 50% 70px 50%;
+  left: -200px;
+  width: 400px;
+  height: 136px;
+  background-image: url(./img/bundle-logo.png);
+  position: relative;
+  }
+
+  .content {
+  margin-top: 200px;
+  margin-left: 10%;
+  text-align: center;
+  width: 80%;
+  height: 200px;
+  }
+
+  .instruct {
+  color: #555;
+  font-weight: 300;
+  }
+
+  .instruct p {
+  font-size: 40px;
+  line-height: 50px;
+  }
+
+  span.auth.url {
+  font-size: 42px;
+  line-height: 20px;
+  font-weight: 400;
+  color: #2064ac;
+  }
+
+  .auth.code p {
+  font-size: 100px;
+  color: #fff;
+  display: inline-block;
+  padding: 20px 30px;
+  background-color: #2064ac;
+  border-radius: 45px;
+  margin: 10px 0;
+  }

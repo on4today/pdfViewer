@@ -1,5 +1,8 @@
 package com.artifex.mupdfdemo;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.AttributeSet;
@@ -12,17 +15,16 @@ import android.view.WindowManager;
 public class MuPDFReaderView extends ReaderView {
 	enum Mode {Viewing, Selecting, Drawing}
 	private final Context mContext;
-//	private boolean mLinksEnabled = false;
 	private Mode mMode = Mode.Viewing;
 	private boolean tapDisabled = false;
 	private int tapPageMargin;
+	private Queue<Runnable> mPostSettleTasks = new LinkedList<Runnable>();
 
 	protected void onTapMainDocArea() {}
 	protected void onDocMotion() {}
 	protected void onHit(Hit item) {};
 
 	public void setLinksEnabled(boolean b) {
-//		mLinksEnabled = b;
 		resetupChildren();
 	}
 
@@ -60,6 +62,10 @@ public class MuPDFReaderView extends ReaderView {
 		super(context, attrs);
 		mContext = context;
 		setup();
+	}
+	
+	public void addPostSettleTask(Runnable task){
+	    mPostSettleTasks.add(task);
 	}
 
 	public boolean onSingleTapUp(MotionEvent e) {
@@ -130,25 +136,6 @@ public class MuPDFReaderView extends ReaderView {
 
 	@SuppressLint("ClickableViewAccessibility")
 	public boolean onTouchEvent(MotionEvent event) {
-
-//		if ( mMode == Mode.Drawing )
-//		{
-//			float x = event.getX();
-//			float y = event.getY();
-//			switch (event.getAction())
-//			{
-//				case MotionEvent.ACTION_DOWN:
-//					touch_start(x, y);
-//					break;
-//				case MotionEvent.ACTION_MOVE:
-//					touch_move(x, y);
-//					break;
-//				case MotionEvent.ACTION_UP:
-//					touch_up();
-//					break;
-//			}
-//		}
-
 		if ((event.getAction() & event.getActionMasked()) == MotionEvent.ACTION_DOWN)
 		{
 			tapDisabled = false;
@@ -157,46 +144,9 @@ public class MuPDFReaderView extends ReaderView {
 		return super.onTouchEvent(event);
 	}
 
-//	private float mX, mY;
-//
-//	private static final float TOUCH_TOLERANCE = 2;
-
-//	private void touch_start(float x, float y) {
-//
-//		MuPDFView pageView = (MuPDFView)getDisplayedView();
-//		if (pageView != null)
-//		{
-//			pageView.startDraw(x, y);
-//		}
-//		mX = x;
-//		mY = y;
-//	}
-//
-//	private void touch_move(float x, float y) {
-//
-//		float dx = Math.abs(x - mX);
-//		float dy = Math.abs(y - mY);
-//		if (dx >= TOUCH_TOLERANCE || dy >= TOUCH_TOLERANCE)
-//		{
-//			MuPDFView pageView = (MuPDFView)getDisplayedView();
-//			if (pageView != null)
-//			{
-//				pageView.continueDraw(x, y);
-//			}
-//			mX = x;
-//			mY = y;
-//		}
-//	}
-//
-//	private void touch_up() {
-//
-//		// NOOP
-//	}
 
 	protected void onChildSetup(int i, View v) {
 		
-//		((MuPDFView) v).setLinkHighlighting(mLinksEnabled);
-
 		((MuPDFView) v).setChangeReporter(new Runnable() {
 			public void run() {
 				applyToChildren(new ReaderView.ViewMapper() {
@@ -210,11 +160,6 @@ public class MuPDFReaderView extends ReaderView {
 	}
 
 	protected void onMoveToChild(int i) {
-//		if (SearchTaskResult.get() != null
-//				&& SearchTaskResult.get().pageNumber != i) {
-//			SearchTaskResult.set(null);
-//			resetupChildren();
-//		}
 	}
 
 	@Override
@@ -228,6 +173,14 @@ public class MuPDFReaderView extends ReaderView {
 		// When the layout has settled ask the page to render
 		// in HQ
 		((MuPDFView) v).updateHq(false);
+		
+		// execute all tasks that were scheduled after the page settles
+		Runnable runnable = null;
+		while ((runnable = mPostSettleTasks.poll()) != null){
+		    Thread thread = new Thread(runnable);
+		    thread.start();
+		}
+		
 	}
 
 	protected void onUnsettle(View v) {

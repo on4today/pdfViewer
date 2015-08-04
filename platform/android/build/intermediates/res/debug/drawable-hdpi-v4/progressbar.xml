@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>  
+  <layer-list xmlns:android="http://schemas.android.com/apk/res/android">  
+  <item android:id="@android:id/background">  
+    <shape>  
+      <corners android:radius="5dip" />  
+      <gradient  
+          android:startColor="#69A0C6"  
+          android:endColor="#446F8D"  
+          android:angle="270"/>  
+    </shape>  
+  </item>  
+  <item android:id="@android:id/secondaryProgress">  
+    <clip>  
+      <shape>  
+        <corners android:radius="5dip" />  
+        <gradient  
+          android:startColor="#B963BA"  
+          android:endColor="#A05AA1"  
+          android:angle="270" />  
+      </shape>  
+    </clip>  
+  </item>  
+  <item android:id="@android:id/progress">  
+    <clip>  
+      <shape>  
+        <corners  
+          android:radius="5dip" />  
+        <gradient  
+          android:startColor="#911793"  
+          android:endColor="#5B115C"  
+          android:angle="270" />  
+      </shape>  
+    </clip>  
+  </item>  
+  </layer-list>  <!-- From: file:/usr/local/var/www/on4chromium/mupdf/platform/android/res/drawable-hdpi/progressbar.xml -->

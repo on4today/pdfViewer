@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merger version="3"><dataSet config="main"><source path="/usr/local/var/www/on4chromium/mupdf/platform/android/src/androidTest/res"/><source path="/usr/local/var/www/on4chromium/mupdf/platform/android/build/generated/res/rs/androidTest/debug"/><source path="/usr/local/var/www/on4chromium/mupdf/platform/android/build/generated/res/generated/androidTest/debug"/></dataSet><mergedItems/></merger>
